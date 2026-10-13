@@ -5,16 +5,16 @@
  * Pure Vanilla JavaScript • Zero External Dependencies • Offline-First PWA
  *
  * TABLE OF CONTENTS:
- *  1. CONFIGURATION & CONSTANTS (Customize default values & settings here)
+ *  1. CONFIGURATION & CONSTANTS
  *  2. STATE STORE (Centralized data management with LocalStorage)
- *  3. DOM ELEMENT CACHE (Cached selectors for high performance)
+ *  3. DOM ELEMENT CACHE
  *  4. UTILITY HELPERS (Debounce, sanitization, toast alerts)
  *  5. AUDIO SYNTHESIZER (Pure Web Audio API harmonic completion chimes)
  *  6. CLOCK & GREETING ENGINE (Live time, dynamic greeting, date display)
  *  7. TASK MANAGEMENT (CRUD operations, filtering, sorting, delegation)
  *  8. SCRATCHPAD (Markdown quick notes, autosave, formatting actions)
  *  9. SETTINGS & THEMES (Wireframe styles, glass opacity, sound toggle)
- * 10. CROSS-WINDOW & ROOM SYNC (BroadcastChannel, QR codes, URL params)
+ * 10. GOOGLE-STYLE DEVICE PAIRING & REAL-TIME SYNC ENGINE
  * 11. BACKUP & RESTORE (1-Click JSON export & file import)
  * 12. EVENT DELEGATION & LIFECYCLE INITIALIZATION
  * ==============================================================================
@@ -23,15 +23,17 @@
 (function () {
   'use strict';
 
+  // Unique identifier for this browser session to filter self-broadcasts
+  const CLIENT_ID = 'dev_' + Math.random().toString(36).substring(2, 9);
+
   // ============================================================================
   // 1. CONFIGURATION & CONSTANTS
-  // Edit these values to customize initial behavior, defaults, or timings
   // ============================================================================
   const CONFIG = {
     // Storage & Sync Keys
     STORAGE_KEY: 'desknotes_app_state_v1',
     BROADCAST_CHANNEL: 'desknotes_live_channel',
-    RELAY_STORAGE_PREFIX: 'cloud_relay_',
+    RELAY_SERVER_URL: 'https://ntfy.sh',
 
     // UI Defaults
     DEFAULT_THEME: 'balsamiq',
@@ -41,13 +43,13 @@
     // Timings (in milliseconds)
     DEBOUNCE_SCRATCHPAD_MS: 350,
     TOAST_DURATION_MS: 2400,
-    SYNC_POLL_INTERVAL_MS: 6000,
+    SYNC_POLL_INTERVAL_MS: 8000,
     CLOCK_TICK_MS: 1000,
 
     // SVG Progress Ring Geometry (r = 30 -> 2 * PI * 30 = 188.495)
     RING_CIRCUMFERENCE: 188.49,
 
-    // Initial Starter Data (used when first launched or localStorage is empty)
+    // Initial Starter Data
     INITIAL_TASKS: [
       {
         id: 'task-init-1',
@@ -67,7 +69,7 @@
       },
       {
         id: 'task-init-3',
-        text: 'Your notes & tasks auto-save in local storage 💾',
+        text: 'Pair desktop and phone with a 6-digit PIN & Google-style number check ⚡',
         completed: false,
         priority: 'idea',
         pinned: false,
@@ -101,9 +103,6 @@
       }
     },
 
-    /**
-     * Load state from HTML5 LocalStorage or populate with default starter seeds
-     */
     load() {
       try {
         const stored = localStorage.getItem(CONFIG.STORAGE_KEY);
@@ -125,21 +124,13 @@
       }
     },
 
-    /**
-     * Save current state to LocalStorage and broadcast to multi-window listeners
-     * @param {boolean} broadcast - Whether to sync across other tabs/windows
-     */
     save(broadcast = true) {
       try {
         this.state.updatedAt = Date.now();
         localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(this.state));
 
-        if (broadcast && Sync.channel) {
-          Sync.channel.postMessage({ type: 'SYNC_UPDATE', state: this.state });
-        }
-
-        if (this.state.settings.syncRoomKey) {
-          Sync.pushToRelay(this.state.settings.syncRoomKey, this.state);
+        if (broadcast) {
+          Sync.broadcastState();
         }
       } catch (err) {
         console.error('LocalStorage write failed:', err);
@@ -201,12 +192,31 @@
     importFileInput: document.getElementById('importFileInput'),
     settingsModal: document.getElementById('settingsModal'),
     closeSettingsBtn: document.getElementById('closeSettingsBtn'),
-    syncRoomInput: document.getElementById('syncRoomInput'),
-    generateRoomBtn: document.getElementById('generateRoomBtn'),
-    connectSyncBtn: document.getElementById('connectSyncBtn'),
+
+    // Google-Style Device Pairing & Sync
+    pairStatusBadge: document.getElementById('pairStatusBadge'),
+    disconnectSyncBtn: document.getElementById('disconnectSyncBtn'),
+    tabShareCodeBtn: document.getElementById('tabShareCodeBtn'),
+    tabEnterCodeBtn: document.getElementById('tabEnterCodeBtn'),
+    shareCodePanel: document.getElementById('shareCodePanel'),
+    enterCodePanel: document.getElementById('enterCodePanel'),
+    shareCodeDisplay: document.getElementById('shareCodeDisplay'),
+    copyShareCodeBtn: document.getElementById('copyShareCodeBtn'),
+    refreshShareCodeBtn: document.getElementById('refreshShareCodeBtn'),
+    shareVerifyNumber: document.getElementById('shareVerifyNumber'),
+    hostListeningStatus: document.getElementById('hostListeningStatus'),
+    hostStatusMsg: document.getElementById('hostStatusMsg'),
+    joinCodeInput: document.getElementById('joinCodeInput'),
+    submitJoinCodeBtn: document.getElementById('submitJoinCodeBtn'),
+    verifyNumberStep: document.getElementById('verifyNumberStep'),
+    verifyNumberOptions: document.getElementById('verifyNumberOptions'),
+    verifyFeedbackMsg: document.getElementById('verifyFeedbackMsg'),
+    toggleQrAccordionBtn: document.getElementById('toggleQrAccordionBtn'),
     qrCodeContainer: document.getElementById('qrCodeContainer'),
     qrCanvasWrapper: document.getElementById('qrCanvasWrapper'),
     qrUrlText: document.getElementById('qrUrlText'),
+
+    // Theme & Options
     themeCards: document.querySelectorAll('.theme-card'),
     opacitySlider: document.getElementById('opacitySlider'),
     opacityValLabel: document.getElementById('opacityValLabel'),
@@ -219,10 +229,6 @@
   // ============================================================================
   // 4. UTILITY HELPERS
   // ============================================================================
-
-  /**
-   * Simple debounce helper for rapid inputs (typing, sliders, searches)
-   */
   function debounce(func, waitMs) {
     let timeout;
     return function (...args) {
@@ -231,9 +237,6 @@
     };
   }
 
-  /**
-   * Escape special HTML characters to prevent XSS in user tasks
-   */
   function escapeHtml(str) {
     if (!str) return '';
     return str
@@ -244,9 +247,6 @@
       .replace(/'/g, '&#039;');
   }
 
-  /**
-   * Show animated floating toast notification
-   */
   let toastTimer = null;
   function showToast(message) {
     if (!dom.toast) return;
@@ -260,7 +260,6 @@
 
   // ============================================================================
   // 5. AUDIO SYNTHESIZER (Harmonic Completion Chimes)
-  // Synthesizes pleasant musical chimes using Web Audio API (Zero audio files needed)
   // ============================================================================
   const AudioEngine = {
     ctx: null,
@@ -310,9 +309,7 @@
         gain2.connect(this.ctx.destination);
         osc2.start(now + 0.05);
         osc2.stop(now + 0.4);
-      } catch (err) {
-        // Audio policy or unsupported device fallback
-      }
+      } catch (err) {}
     }
   };
 
@@ -337,14 +334,12 @@
       if (dom.liveClockText) dom.liveClockText.textContent = `${displayHours}:${minutes}`;
       if (dom.liveSecondsText) dom.liveSecondsText.textContent = `${seconds} ${ampm}`;
 
-      // Dynamic Greeting based on time of day
       if (dom.greetingText) {
         if (hours < 12) dom.greetingText.textContent = 'Good Morning';
         else if (hours < 17) dom.greetingText.textContent = 'Good Afternoon';
         else dom.greetingText.textContent = 'Good Evening';
       }
 
-      // Date label
       if (dom.currentDateText) {
         dom.currentDateText.textContent = now.toLocaleDateString(undefined, {
           weekday: 'short',
@@ -361,9 +356,6 @@
   const Tasks = {
     selectedPriority: 'normal',
 
-    /**
-     * Add a new task to state
-     */
     add(text, priority = 'normal') {
       const clean = text.trim();
       if (!clean) return;
@@ -385,9 +377,6 @@
       showToast('Task added');
     },
 
-    /**
-     * Toggle completed status
-     */
     toggleComplete(id) {
       const task = Store.state.tasks.find((t) => t.id === id);
       if (!task) return;
@@ -402,9 +391,6 @@
       this.render();
     },
 
-    /**
-     * Pin/unpin a task to the top of the list
-     */
     togglePin(id) {
       const task = Store.state.tasks.find((t) => t.id === id);
       if (!task) return;
@@ -415,9 +401,6 @@
       showToast(task.pinned ? 'Pinned to top 📌' : 'Unpinned');
     },
 
-    /**
-     * Delete a single task
-     */
     delete(id) {
       const el = document.querySelector(`[data-task-id="${id}"]`);
       if (el) {
@@ -436,9 +419,6 @@
       }
     },
 
-    /**
-     * Remove all finished tasks
-     */
     clearCompleted() {
       const countBefore = Store.state.tasks.length;
       Store.state.tasks = Store.state.tasks.filter((t) => !t.completed);
@@ -449,9 +429,6 @@
       }
     },
 
-    /**
-     * Filter and sort tasks based on search and active view
-     */
     getFilteredTasks() {
       const query = (Store.state.settings.searchQuery || '').toLowerCase().trim();
       const filter = Store.state.settings.filter || 'all';
@@ -469,13 +446,8 @@
       return list;
     },
 
-    /**
-     * Render task items and update the circular progress gauge
-     */
     render() {
       const filtered = this.getFilteredTasks();
-
-      // Clear previous list
       dom.taskList.innerHTML = '';
 
       if (filtered.length === 0) {
@@ -528,9 +500,6 @@
       this.updateProgressMetrics();
     },
 
-    /**
-     * Compute completion percentages and update the circular progress gauge
-     */
     updateProgressMetrics() {
       const total = Store.state.tasks.length;
       const completed = Store.state.tasks.filter((t) => t.completed).length;
@@ -550,9 +519,6 @@
       }
     },
 
-    /**
-     * Mobile touch swipe gestures (Swipe right: complete, Swipe left: delete)
-     */
     bindTouchSwipe(element, taskId) {
       let startX = 0;
       let currentX = 0;
@@ -678,37 +644,34 @@
     apply() {
       const s = Store.state.settings;
 
-      // Validate theme
       if (!CONFIG.AVAILABLE_THEMES.includes(s.theme)) {
         s.theme = CONFIG.DEFAULT_THEME;
       }
       document.body.setAttribute('data-theme', s.theme);
 
-      // Clean inline background overrides
       document.querySelectorAll('.bento-tile').forEach((tile) => {
         tile.style.backgroundColor = '';
       });
 
-      // Opacity
       const opacityPct = s.opacity != null ? s.opacity : CONFIG.DEFAULT_OPACITY;
       if (dom.opacitySlider) dom.opacitySlider.value = opacityPct;
       if (dom.opacityValLabel) dom.opacityValLabel.textContent = `${opacityPct}%`;
 
       this.updateSoundUI();
 
-      // Theme selector button states
       dom.themeCards.forEach((card) => {
         card.classList.toggle('active', card.dataset.setTheme === s.theme);
       });
 
-      // Window collapse / expand state
       if (s.isCollapsed) this.collapseWidget();
       else this.expandWidget();
 
       // Restore active sync room
       if (s.syncRoomKey) {
-        dom.syncRoomInput.value = s.syncRoomKey;
-        Sync.connect(s.syncRoomKey, false);
+        Sync.subscribeToRelay(s.syncRoomKey, true);
+        Sync.updateBadgeStatus(true, s.syncRoomKey);
+      } else {
+        Sync.updateBadgeStatus(false);
       }
     },
 
@@ -736,99 +699,385 @@
   };
 
   // ============================================================================
-  // 10. CROSS-WINDOW & ROOM SYNC
+  // 10. GOOGLE-STYLE DEVICE PAIRING & REAL-TIME SYNC ENGINE
   // ============================================================================
   const Sync = {
     channel: null,
+    eventSource: null,
     pollTimer: null,
+    activeRoomPin: '',
+    currentHostCode: '',
+    currentHostVerifyNum: 0,
 
     init() {
+      // 1. Setup multi-window BroadcastChannel (for instant same-PC tabs)
       if ('BroadcastChannel' in window) {
         this.channel = new BroadcastChannel(CONFIG.BROADCAST_CHANNEL);
         this.channel.onmessage = (event) => {
           if (event.data && event.data.type === 'SYNC_UPDATE' && event.data.state) {
-            Store.state.tasks = event.data.state.tasks || [];
-            Store.state.scratchpad = event.data.state.scratchpad || '';
-            Tasks.render();
-            Scratchpad.render();
-            showToast('Updated live from another window');
+            if (event.data.senderId === CLIENT_ID) return;
+            this.applyRemoteState(event.data.state, event.data.updatedAt);
           }
         };
       }
+
+      // 2. Generate a default host code for this device if not paired yet
+      this.generateNewHostCode();
     },
 
-    connect(roomKey, showFeedback = true) {
-      const key = (roomKey || '').trim().toLowerCase();
-      if (!key) {
-        showToast('Please enter a Sync Room Key');
+    /**
+     * Compute a deterministic 2-digit verification number (10-99) from any code string
+     */
+    computeVerificationNumber(codeStr) {
+      const clean = String(codeStr).replace(/\D/g, '');
+      if (!clean) return 42;
+      let hash = 0;
+      for (let i = 0; i < clean.length; i++) {
+        hash = (hash * 37 + clean.charCodeAt(i) * 19) % 90;
+      }
+      return hash + 10;
+    },
+
+    /**
+     * Generate two random distractor 2-digit numbers that don't match the correct one
+     */
+    generateDistractors(correctNum) {
+      const distractors = new Set();
+      while (distractors.size < 2) {
+        const rand = Math.floor(Math.random() * 90) + 10;
+        if (rand !== correctNum) distractors.add(rand);
+      }
+      return Array.from(distractors);
+    },
+
+    /**
+     * Generate new 6-digit PIN on the host device
+     */
+    generateNewHostCode() {
+      const num1 = Math.floor(Math.random() * 900) + 100;
+      const num2 = Math.floor(Math.random() * 900) + 100;
+      const code = `${num1}${num2}`;
+      this.currentHostCode = code;
+      this.currentHostVerifyNum = this.computeVerificationNumber(code);
+
+      if (dom.shareCodeDisplay) {
+        dom.shareCodeDisplay.textContent = `${num1} ${num2}`;
+      }
+      if (dom.shareVerifyNumber) {
+        dom.shareVerifyNumber.textContent = this.currentHostVerifyNum;
+      }
+      if (dom.hostStatusMsg) {
+        dom.hostStatusMsg.textContent = 'Ready & listening for phone to connect...';
+      }
+
+      this.generateQr(code);
+
+      // Listen on this code's relay channel so if a phone connects and enters the PIN, the host gets notified!
+      if (!Store.state.settings.syncRoomKey) {
+        this.subscribeToRelay(code, false);
+      }
+    },
+
+    /**
+     * Subscribe to real-time relay (ntfy.sh SSE)
+     */
+    subscribeToRelay(roomPin, isPersisted = true) {
+      const cleanPin = String(roomPin).replace(/\D/g, '');
+      if (!cleanPin) return;
+
+      this.activeRoomPin = cleanPin;
+
+      if (this.eventSource) {
+        try { this.eventSource.close(); } catch (e) {}
+      }
+
+      try {
+        const topic = `tododay-sync-${cleanPin}`;
+        this.eventSource = new EventSource(`${CONFIG.RELAY_SERVER_URL}/${topic}/sse`);
+
+        this.eventSource.onopen = () => {
+          if (isPersisted) {
+            this.updateBadgeStatus(true, cleanPin);
+          }
+        };
+
+        this.eventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data && data.message) {
+              const msg = JSON.parse(data.message);
+              this.handleRelayMessage(msg, cleanPin);
+            }
+          } catch (err) {}
+        };
+
+        this.eventSource.onerror = () => {
+          // Automatic reconnect handled natively by EventSource
+        };
+      } catch (err) {
+        console.warn('SSE subscription error:', err);
+      }
+
+      // Also set up polling fallback every 8 seconds in case browser pauses SSE on mobile
+      if (this.pollTimer) clearInterval(this.pollTimer);
+      this.pollTimer = setInterval(() => this.pollRelayFallback(cleanPin), CONFIG.SYNC_POLL_INTERVAL_MS);
+    },
+
+    /**
+     * Handle incoming remote message
+     */
+    handleRelayMessage(msg, currentRoom) {
+      if (!msg || msg.senderId === CLIENT_ID) return;
+
+      if (msg.type === 'PAIR_SUCCESS') {
+        AudioEngine.playChime();
+        if ('vibrate' in navigator) navigator.vibrate([60, 40, 60]);
+        Store.state.settings.syncRoomKey = currentRoom;
+        Store.save(false);
+        this.updateBadgeStatus(true, currentRoom);
+        if (dom.hostStatusMsg) {
+          dom.hostStatusMsg.innerHTML = '<b>✅ Phone Connected & Synced!</b>';
+        }
+        showToast('🎉 Device Connected & Paired!');
+        // Broadcast current state to newly paired device
+        this.broadcastState();
         return;
       }
 
-      Store.state.settings.syncRoomKey = key;
-      Store.save(false);
-
-      if (dom.syncStatusText) dom.syncStatusText.textContent = `Room: ${key.substring(0, 8)}`;
-
-      this.generateQr(key);
-      this.pullFromRelay(key);
-
-      if (this.pollTimer) clearInterval(this.pollTimer);
-      this.pollTimer = setInterval(() => this.pullFromRelay(key), CONFIG.SYNC_POLL_INTERVAL_MS);
-
-      if (showFeedback) showToast(`Connected to room: ${key}`);
+      if (msg.type === 'SYNC_UPDATE' && msg.state) {
+        this.applyRemoteState(msg.state, msg.updatedAt);
+      }
     },
 
-    generateQr(roomKey) {
-      if (!dom.qrCodeContainer || !dom.qrCanvasWrapper) return;
-      dom.qrCodeContainer.classList.remove('hidden');
+    /**
+     * Broadcast local state to other devices
+     */
+    async broadcastState() {
+      const pin = Store.state.settings.syncRoomKey || this.activeRoomPin;
+      if (!pin) return;
 
-      const syncUrl = `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(roomKey)}`;
-      if (dom.qrUrlText) dom.qrUrlText.textContent = syncUrl;
+      const payload = {
+        type: 'SYNC_UPDATE',
+        senderId: CLIENT_ID,
+        updatedAt: Date.now(),
+        state: {
+          tasks: Store.state.tasks,
+          scratchpad: Store.state.scratchpad
+        }
+      };
 
-      dom.qrCanvasWrapper.innerHTML = '';
-      const img = document.createElement('img');
-      img.width = 160;
-      img.height = 160;
-      img.alt = 'Sync QR Code';
-      img.src = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(syncUrl)}&margin=4`;
-      dom.qrCanvasWrapper.appendChild(img);
-    },
+      // 1. Local BroadcastChannel
+      if (this.channel) {
+        this.channel.postMessage({ type: 'SYNC_UPDATE', ...payload });
+      }
 
-    pushToRelay(roomKey, payload) {
-      if (!roomKey) return;
+      // 2. Public Real-Time Relay
       try {
-        const data = {
-          updatedAt: payload.updatedAt || Date.now(),
-          tasks: payload.tasks,
-          scratchpad: payload.scratchpad
-        };
-        localStorage.setItem(`${CONFIG.RELAY_STORAGE_PREFIX}${roomKey}`, JSON.stringify(data));
+        const topic = `tododay-sync-${pin}`;
+        await fetch(`${CONFIG.RELAY_SERVER_URL}/${topic}`, {
+          method: 'POST',
+          body: JSON.stringify(payload),
+          headers: { 'Content-Type': 'application/json' }
+        });
       } catch (e) {}
     },
 
-    pullFromRelay(roomKey) {
-      if (!roomKey) return;
+    /**
+     * Merge remote state into local store
+     */
+    applyRemoteState(remoteState, remoteUpdatedAt = Date.now()) {
+      if (!remoteState) return;
+      if (remoteUpdatedAt && remoteUpdatedAt <= (Store.state.updatedAt || 0)) return;
+
+      Store.state.tasks = remoteState.tasks || [];
+      Store.state.scratchpad = remoteState.scratchpad || '';
+      Store.state.updatedAt = remoteUpdatedAt;
+
+      Tasks.render();
+      Scratchpad.render();
+      showToast('Synced with paired device ✨');
+    },
+
+    /**
+     * Polling fallback
+     */
+    async pollRelayFallback(roomPin) {
+      if (!Store.state.settings.syncRoomKey) return;
       try {
-        const raw = localStorage.getItem(`${CONFIG.RELAY_STORAGE_PREFIX}${roomKey}`);
-        if (raw) {
-          const data = JSON.parse(raw);
-          if (data && data.updatedAt && data.updatedAt > (Store.state.updatedAt || 0)) {
-            Store.state.tasks = data.tasks || [];
-            Store.state.scratchpad = data.scratchpad || '';
-            Store.state.updatedAt = data.updatedAt;
-            Tasks.render();
-            Scratchpad.render();
+        const topic = `tododay-sync-${roomPin}`;
+        const res = await fetch(`${CONFIG.RELAY_SERVER_URL}/${topic}/json?poll=1&since=30s`);
+        if (res.ok) {
+          const lines = (await res.text()).trim().split('\n');
+          for (const line of lines) {
+            if (!line) continue;
+            const data = JSON.parse(line);
+            if (data && data.message) {
+              const msg = JSON.parse(data.message);
+              this.handleRelayMessage(msg, roomPin);
+            }
           }
         }
       } catch (e) {}
     },
 
-    checkUrlRoom() {
+    /**
+     * Join / Pair device flow with Google-Style Number Challenge
+     */
+    startJoinVerification(enteredCode) {
+      const cleanCode = enteredCode.replace(/\D/g, '');
+      if (cleanCode.length < 4) {
+        showToast('Please enter a 6-digit code');
+        return;
+      }
+
+      const correctNum = this.computeVerificationNumber(cleanCode);
+      const distractors = this.generateDistractors(correctNum);
+      const options = [correctNum, ...distractors].sort(() => Math.random() - 0.5);
+
+      dom.verifyNumberOptions.innerHTML = '';
+      dom.verifyFeedbackMsg.textContent = '';
+      dom.verifyFeedbackMsg.className = 'verify-feedback-msg';
+
+      options.forEach((num) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'verify-num-btn';
+        btn.textContent = num;
+        btn.setAttribute('data-num', num);
+        btn.addEventListener('click', () => {
+          this.submitVerificationChoice(num, correctNum, cleanCode, btn);
+        });
+        dom.verifyNumberOptions.appendChild(btn);
+      });
+
+      dom.verifyNumberStep.classList.remove('hidden');
+    },
+
+    /**
+     * User clicks one of the 3 verification challenge numbers
+     */
+    async submitVerificationChoice(selectedNum, correctNum, roomCode, clickedBtn) {
+      if (selectedNum === correctNum) {
+        // MATCH CONFIRMED
+        clickedBtn.classList.add('success');
+        dom.verifyFeedbackMsg.textContent = '✅ Verified! Pairing with other device...';
+        dom.verifyFeedbackMsg.style.color = 'var(--success-color, #10b981)';
+
+        AudioEngine.playChime();
+        if ('vibrate' in navigator) navigator.vibrate([50, 50, 100]);
+
+        Store.state.settings.syncRoomKey = roomCode;
+        Store.save(false);
+
+        this.subscribeToRelay(roomCode, true);
+
+        // Notify host
+        try {
+          const topic = `tododay-sync-${roomCode}`;
+          await fetch(`${CONFIG.RELAY_SERVER_URL}/${topic}`, {
+            method: 'POST',
+            body: JSON.stringify({
+              type: 'PAIR_SUCCESS',
+              senderId: CLIENT_ID,
+              timestamp: Date.now()
+            }),
+            headers: { 'Content-Type': 'application/json' }
+          });
+        } catch (e) {}
+
+        setTimeout(() => {
+          dom.verifyNumberStep.classList.add('hidden');
+          dom.joinCodeInput.value = '';
+          this.updateBadgeStatus(true, roomCode);
+          showToast('🎉 Successfully paired with device!');
+        }, 800);
+
+      } else {
+        // MISMATCH
+        clickedBtn.classList.add('error');
+        dom.verifyFeedbackMsg.textContent = '❌ Wrong number. Check your other screen.';
+        dom.verifyFeedbackMsg.style.color = 'var(--priority-high, #ef4444)';
+        if ('vibrate' in navigator) navigator.vibrate(120);
+
+        setTimeout(() => {
+          clickedBtn.classList.remove('error');
+        }, 1000);
+      }
+    },
+
+    disconnect() {
+      Store.state.settings.syncRoomKey = '';
+      Store.save(false);
+
+      if (this.eventSource) {
+        try { this.eventSource.close(); } catch (e) {}
+      }
+      if (this.pollTimer) clearInterval(this.pollTimer);
+
+      this.updateBadgeStatus(false);
+      this.generateNewHostCode();
+      showToast('Device unpaired');
+    },
+
+    updateBadgeStatus(isPaired, roomKey = '') {
+      const pin = roomKey || Store.state.settings.syncRoomKey;
+      if (isPaired && pin) {
+        const formatted = pin.length === 6 ? `${pin.slice(0, 3)} ${pin.slice(3)}` : pin;
+        if (dom.pairStatusBadge) {
+          dom.pairStatusBadge.textContent = `Paired (#${formatted})`;
+          dom.pairStatusBadge.className = 'badge-pill green';
+        }
+        if (dom.syncStatusText) {
+          dom.syncStatusText.textContent = `Synced (#${formatted})`;
+        }
+        if (dom.syncStatusBadge) {
+          dom.syncStatusBadge.title = `Synced live with Room #${formatted}`;
+        }
+        if (dom.disconnectSyncBtn) {
+          dom.disconnectSyncBtn.classList.remove('hidden');
+        }
+        if (dom.hostStatusMsg) {
+          dom.hostStatusMsg.innerHTML = `<b>🟢 Paired & Syncing live (#${formatted})</b>`;
+        }
+      } else {
+        if (dom.pairStatusBadge) {
+          dom.pairStatusBadge.textContent = 'Not Paired';
+          dom.pairStatusBadge.className = 'badge-pill';
+        }
+        if (dom.syncStatusText) {
+          dom.syncStatusText.textContent = 'Local Storage';
+        }
+        if (dom.syncStatusBadge) {
+          dom.syncStatusBadge.title = 'Storage & Sync Status';
+        }
+        if (dom.disconnectSyncBtn) {
+          dom.disconnectSyncBtn.classList.add('hidden');
+        }
+      }
+    },
+
+    generateQr(code) {
+      if (!dom.qrCanvasWrapper) return;
+      const syncUrl = `${window.location.origin}${window.location.pathname}?pair=${encodeURIComponent(code)}`;
+      if (dom.qrUrlText) dom.qrUrlText.textContent = syncUrl;
+
+      dom.qrCanvasWrapper.innerHTML = '';
+      const img = document.createElement('img');
+      img.width = 150;
+      img.height = 150;
+      img.alt = 'Pairing QR Code';
+      img.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(syncUrl)}&margin=4`;
+      dom.qrCanvasWrapper.appendChild(img);
+    },
+
+    checkUrlPairParam() {
       const params = new URLSearchParams(window.location.search);
-      const roomParam = params.get('room');
-      if (roomParam) {
-        if (dom.syncRoomInput) dom.syncRoomInput.value = roomParam;
-        this.connect(roomParam, true);
+      const pairParam = params.get('pair') || params.get('room');
+      if (pairParam) {
+        if (dom.settingsModal) dom.settingsModal.classList.remove('hidden');
+        if (dom.tabEnterCodeBtn) dom.tabEnterCodeBtn.click();
+        if (dom.joinCodeInput) dom.joinCodeInput.value = pairParam;
+        this.startJoinVerification(pairParam);
       }
     }
   };
@@ -915,7 +1164,7 @@
       });
     });
 
-    // Efficient Event Delegation on Task List (Zero memory leaks)
+    // Event Delegation on Task List
     dom.taskList.addEventListener('click', (e) => {
       const actionEl = e.target.closest('[data-action]');
       if (!actionEl) return;
@@ -1011,14 +1260,67 @@
       Store.save(false);
     });
 
-    // Cloud / Phone Room Sync
-    dom.generateRoomBtn.addEventListener('click', () => {
-      dom.syncRoomInput.value = 'desk-' + Math.random().toString(36).substring(2, 7);
+    // Pairing Mode Tabs (Show Code vs Enter Code)
+    dom.tabShareCodeBtn.addEventListener('click', () => {
+      dom.tabShareCodeBtn.classList.add('active');
+      dom.tabEnterCodeBtn.classList.remove('active');
+      dom.shareCodePanel.classList.remove('hidden');
+      dom.enterCodePanel.classList.add('hidden');
     });
-    dom.connectSyncBtn.addEventListener('click', () => {
-      Sync.connect(dom.syncRoomInput.value, true);
+
+    dom.tabEnterCodeBtn.addEventListener('click', () => {
+      dom.tabEnterCodeBtn.classList.add('active');
+      dom.tabShareCodeBtn.classList.remove('active');
+      dom.enterCodePanel.classList.remove('hidden');
+      dom.shareCodePanel.classList.add('hidden');
+      dom.joinCodeInput.focus();
     });
-    dom.syncStatusBadge.addEventListener('click', () => dom.settingsModal.classList.remove('hidden'));
+
+    // Copy & Refresh Share Code
+    dom.copyShareCodeBtn.addEventListener('click', () => {
+      if (Sync.currentHostCode) {
+        navigator.clipboard.writeText(Sync.currentHostCode).then(() => {
+          showToast('Pairing code copied! 📋');
+        });
+      }
+    });
+
+    dom.refreshShareCodeBtn.addEventListener('click', () => {
+      Sync.generateNewHostCode();
+      showToast('Generated new code ⚡');
+    });
+
+    // Join Code Input Formatting
+    dom.joinCodeInput.addEventListener('input', (e) => {
+      const raw = e.target.value.replace(/\D/g, '').slice(0, 6);
+      if (raw.length > 3) {
+        e.target.value = `${raw.slice(0, 3)} ${raw.slice(3)}`;
+      } else {
+        e.target.value = raw;
+      }
+      if (raw.length === 6) {
+        Sync.startJoinVerification(raw);
+      }
+    });
+
+    dom.submitJoinCodeBtn.addEventListener('click', () => {
+      Sync.startJoinVerification(dom.joinCodeInput.value);
+    });
+
+    // Disconnect / Unpair
+    dom.disconnectSyncBtn.addEventListener('click', () => {
+      Sync.disconnect();
+    });
+
+    // Toggle QR Fallback
+    dom.toggleQrAccordionBtn.addEventListener('click', () => {
+      dom.qrCodeContainer.classList.toggle('hidden');
+    });
+
+    // Status Badge in Tile 2 opens Pairing Modal
+    dom.syncStatusBadge.addEventListener('click', () => {
+      dom.settingsModal.classList.remove('hidden');
+    });
 
     // Backup & Restore
     dom.exportJsonBtn.addEventListener('click', () => Backup.export());
@@ -1029,7 +1331,6 @@
 
     // Global Keyboard Shortcuts
     window.addEventListener('keydown', (e) => {
-      // Ctrl + /: Toggle focus between Tasks input and Scratchpad
       if (e.ctrlKey && e.key === '/') {
         e.preventDefault();
         if (document.activeElement === dom.scratchpadText) {
@@ -1039,7 +1340,6 @@
         }
       }
 
-      // Escape: Close modals or clear search
       if (e.key === 'Escape') {
         if (!dom.settingsModal.classList.contains('hidden')) {
           dom.settingsModal.classList.add('hidden');
@@ -1052,18 +1352,12 @@
     });
   }
 
-  /**
-   * PWA Service Worker Registration
-   */
   function registerServiceWorker() {
     if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
       navigator.serviceWorker.register('./sw.js').catch(() => {});
     }
   }
 
-  /**
-   * Application Entry Point
-   */
   function init() {
     Store.load();
     Sync.init();
@@ -1072,7 +1366,7 @@
     Tasks.render();
     Scratchpad.render();
     bindEvents();
-    Sync.checkUrlRoom();
+    Sync.checkUrlPairParam();
     registerServiceWorker();
   }
 

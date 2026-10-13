@@ -276,26 +276,97 @@
             </p>
           </div>
 
-          <!-- Cross-Platform Sync -->
-          <div class="setting-group">
-            <label class="setting-title">
-              <span>⚡ Live Sync (Desktop & Phone)</span>
-              <span class="badge-pill">Real-time</span>
-            </label>
-            <p class="setting-hint">Enter the same Sync Room Key on your phone and PC to sync tasks & notes live without signing up.</p>
+          <!-- Cross-Platform Sync with Google-style Number Verification -->
+          <div class="setting-group highlight-box pair-container">
+            <div class="pair-header-row">
+              <label class="setting-title">
+                <span>⚡ Easy Connect & Device Sync</span>
+                <span id="pairStatusBadge" class="badge-pill">Not Paired</span>
+              </label>
+              <button type="button" id="disconnectSyncBtn" class="text-link-btn micro text-danger hidden" title="Disconnect device">Unpair</button>
+            </div>
             
-            <div class="sync-input-row">
-              <input type="text" id="syncRoomInput" class="text-input" placeholder="e.g. desk-room-42" maxlength="32" />
-              <button id="generateRoomBtn" class="btn secondary" title="Generate random key">Random</button>
-              <button id="connectSyncBtn" class="btn primary">Connect</button>
+            <p class="setting-hint">Sync your desktop & phone seamlessly with a 6-digit PIN and Google-style number verification. No login required.</p>
+
+            <!-- Mode Selector Tabs: Share vs Enter -->
+            <div id="pairModeTabs" class="pair-mode-tabs">
+              <button type="button" id="tabShareCodeBtn" class="pair-tab-btn active" data-tab="share">
+                <span>💻 Show Code (Here)</span>
+              </button>
+              <button type="button" id="tabEnterCodeBtn" class="pair-tab-btn" data-tab="enter">
+                <span>📱 Enter Code (Other Device)</span>
+              </button>
             </div>
 
-            <!-- QR Code Section -->
-            <div id="qrCodeContainer" class="qr-box hidden">
-              <p class="qr-instruction">Scan with your phone to open & sync:</p>
-              <div id="qrCanvasWrapper" class="qr-display"></div>
-              <p id="qrUrlText" class="qr-url-hint"></p>
+            <!-- PANEL 1: SHARE CODE (HOST) -->
+            <div id="shareCodePanel" class="pair-panel active">
+              <div class="pair-card">
+                <div class="pair-step-tag">1. Enter this 6-digit PIN on your phone:</div>
+                <div class="pair-code-display-box">
+                  <span id="shareCodeDisplay" class="share-code-digits">--- ---</span>
+                  <button type="button" id="copyShareCodeBtn" class="btn micro secondary" title="Copy code">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    <span>Copy</span>
+                  </button>
+                  <button type="button" id="refreshShareCodeBtn" class="btn micro secondary" title="Generate new code">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                  </button>
+                </div>
+
+                <div class="pair-step-tag">2. Verification Match Number (Google-Style):</div>
+                <div class="verify-challenge-banner">
+                  <div class="verify-challenge-left">
+                    <span class="verify-challenge-num" id="shareVerifyNumber">--</span>
+                  </div>
+                  <div class="verify-challenge-right">
+                    <span class="verify-label-title">Confirmation Number</span>
+                    <span class="verify-label-desc">On your phone, tap this matching number to verify pairing.</span>
+                  </div>
+                </div>
+
+                <div id="hostListeningStatus" class="host-listening-indicator">
+                  <span class="pulse-dot"></span>
+                  <span id="hostStatusMsg">Ready & waiting for phone to connect...</span>
+                </div>
+              </div>
             </div>
+
+            <!-- PANEL 2: ENTER CODE (JOIN) -->
+            <div id="enterCodePanel" class="pair-panel hidden">
+              <div class="pair-card">
+                <div class="pair-step-tag">Enter the 6-digit code shown on your other device:</div>
+                <div class="join-input-group">
+                  <input type="text" id="joinCodeInput" class="join-code-input" placeholder="e.g. 482 915" maxlength="9" autocomplete="off" inputmode="numeric" />
+                  <button type="button" id="submitJoinCodeBtn" class="btn primary">Next</button>
+                </div>
+
+                <!-- Google-style Number Verification Challenge -->
+                <div id="verifyNumberStep" class="verify-step-container hidden">
+                  <div class="verify-prompt-wrap">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                    <p class="verify-prompt-title">Which number appears on your other screen?</p>
+                  </div>
+                  <div id="verifyNumberOptions" class="verify-options-row">
+                    <!-- Populated dynamically with 3 numbers -->
+                  </div>
+                  <p id="verifyFeedbackMsg" class="verify-feedback-msg"></p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Optional QR Code Fallback Toggle -->
+            <div class="qr-accordion">
+              <button type="button" id="toggleQrAccordionBtn" class="text-link-btn micro">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                <span>Or show QR Code fallback</span>
+              </button>
+              <div id="qrCodeContainer" class="qr-box hidden">
+                <p class="qr-instruction">Scan with camera to open & sync:</p>
+                <div id="qrCanvasWrapper" class="qr-display"></div>
+                <p id="qrUrlText" class="qr-url-hint"></p>
+              </div>
+            </div>
+
           </div>
 
           <!-- Theme Selection -->
