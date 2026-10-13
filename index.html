@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0d0f14">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="Minimalist, glassmorphism bento grid desktop widget and mobile companion for notes and tasks.">
+  <title>Tododay • Bento Desktop & Mobile Widget</title>
+
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236366f1'%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E">
+
+  <!-- Typography (Balsamiq Hand-Drawn Wireframe Fonts) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Balsamiq+Sans:ital,wght@0,400;0,700;1,400;1,700&family=Architects+Daughter&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-theme="balsamiq">
+  <!-- Outer Wrapper -->
+  <div class="app-viewport">
+    
+    <!-- Mini Dock (Floating Collapsed Mode) -->
+    <div id="miniDock" class="mini-dock hidden" title="Click to expand widget">
+      <div class="mini-dock-content">
+        <span class="mini-dock-pulse"></span>
+        <span id="miniDockSummary" class="mini-dock-text">0 tasks remaining</span>
+      </div>
+      <button id="expandWidgetBtn" class="icon-btn micro" aria-label="Expand Widget">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+      </button>
+    </div>
+
+    <!-- MAIN BENTO GRID CONTAINER -->
+    <main id="bentoContainer" class="bento-grid-wrapper">
+
+      <!-- BENTO TILE 1: Header, Clock & Greeting -->
+      <section class="bento-tile bento-header-tile" id="tileHeader">
+        <div class="tile-header-left">
+          <div class="logo-badge">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+            </svg>
+          </div>
+          <div class="greeting-wrap">
+            <h1 class="greeting-title" id="greetingText">Good Day</h1>
+            <span class="date-subtitle" id="currentDateText">Monday, Oct 12</span>
+          </div>
+        </div>
+
+        <div class="live-clock-wrap">
+          <time class="clock-display" id="liveClockText">12:00</time>
+          <span class="clock-seconds" id="liveSecondsText">00</span>
+        </div>
+
+        <div class="tile-header-controls">
+          <button id="soundToggleBtn" class="bento-icon-btn" title="Toggle Sound FX" aria-label="Sound Toggle">
+            <svg id="soundIconOn" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>
+            <svg id="soundIconOff" class="hidden" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
+          </button>
+
+          <button id="openSettingsBtn" class="bento-icon-btn" title="Settings & Sync" aria-label="Settings">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          </button>
+
+          <button id="minimizeBtn" class="bento-icon-btn" title="Collapse into Pill" aria-label="Minimize">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </button>
+        </div>
+      </section>
+
+      <!-- BENTO TILE 2: Daily Focus & Progress Metric -->
+      <section class="bento-tile bento-progress-tile" id="tileProgress">
+        <div class="progress-ring-container">
+          <svg class="progress-ring-svg" width="68" height="68" viewBox="0 0 72 72">
+            <circle class="ring-bg" cx="36" cy="36" r="30"></circle>
+            <circle id="progressRingFill" class="ring-fill" cx="36" cy="36" r="30"></circle>
+          </svg>
+          <span id="progressPercentageText" class="ring-center-text">0%</span>
+        </div>
+        <div class="progress-metrics-info">
+          <span class="metric-label">DAILY COMPLETION</span>
+          <span id="progressStatsText" class="metric-value">0 / 0 Done</span>
+          <span id="activeCountText" class="metric-sub">0 tasks waiting</span>
+        </div>
+        <div class="status-indicator-pill" id="syncStatusBadge" title="Storage & Sync Status">
+          <span class="status-dot"></span>
+          <span id="syncStatusText" class="status-text">Local Storage</span>
+        </div>
+      </section>
+
+      <!-- BENTO TILE 3: Core Tasks & Checklist (Main Hero Span) -->
+      <section class="bento-tile bento-tasks-tile" id="tileTasks">
+        <header class="tile-bar">
+          <div class="tile-tag">
+            <span class="dot-accent"></span>
+            <h2>Tasks & Checklist</h2>
+            <span id="taskCountBadge" class="count-pill">0</span>
+          </div>
+
+          <div class="tile-bar-filters">
+            <div class="filter-pills">
+              <button class="filter-btn active" data-filter="all">All</button>
+              <button class="filter-btn" data-filter="active">Active</button>
+              <button class="filter-btn" data-filter="completed">Done</button>
+            </div>
+            <div class="search-wrap">
+              <input type="text" id="taskSearchInput" class="search-input" placeholder="Search..." />
+              <svg class="search-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            </div>
+          </div>
+        </header>
+
+        <!-- Task Input -->
+        <form id="taskForm" class="bento-input-bar">
+          <div class="priority-dropdown-container">
+            <button type="button" id="priorityPickerBtn" class="priority-btn" title="Set Priority" data-priority="normal">
+              <span class="priority-dot priority-normal"></span>
+            </button>
+            <div id="priorityMenu" class="priority-menu hidden">
+              <button type="button" class="priority-opt" data-priority="high">
+                <span class="priority-dot priority-high"></span> Urgent
+              </button>
+              <button type="button" class="priority-opt" data-priority="normal">
+                <span class="priority-dot priority-normal"></span> Normal
+              </button>
+              <button type="button" class="priority-opt" data-priority="low">
+                <span class="priority-dot priority-low"></span> Low
+              </button>
+              <button type="button" class="priority-opt" data-priority="idea">
+                <span class="priority-dot priority-idea"></span> Idea
+              </button>
+            </div>
+          </div>
+
+          <input 
+            type="text" 
+            id="taskInput" 
+            class="task-input" 
+            placeholder="Add a new task... (Press Enter)" 
+            autocomplete="off"
+            maxlength="200"
+            required
+          />
+
+          <button type="submit" id="addTaskBtn" class="add-btn" aria-label="Add Task">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+          </button>
+        </form>
+
+        <!-- Task List Items -->
+        <div id="taskListContainer" class="task-list-wrapper">
+          <ul id="taskList" class="task-list" aria-label="Task List">
+            <!-- Dynamically populated tasks -->
+          </ul>
+
+          <!-- Empty State -->
+          <div id="emptyState" class="empty-state hidden">
+            <div class="empty-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M8 12l2.5 2.5L16 9"></path>
+              </svg>
+            </div>
+            <p class="empty-title">All tasks completed</p>
+            <p class="empty-desc">You are totally caught up.</p>
+          </div>
+        </div>
+
+        <!-- Task Footer Bar -->
+        <footer class="task-footer">
+          <span class="shortcut-hint"><kbd>Enter</kbd> to add • <kbd>Ctrl</kbd>+<kbd>/</kbd> switch</span>
+          <button id="clearCompletedBtn" class="text-btn micro" title="Remove all completed tasks">
+            Clear Completed
+          </button>
+        </footer>
+      </section>
+
+      <!-- BENTO TILE 4: Scratchpad & Quick Markdown Notes -->
+      <section class="bento-tile bento-notes-tile" id="tileNotes">
+        <header class="tile-bar">
+          <div class="tile-tag">
+            <span class="dot-accent purple"></span>
+            <h2>Quick Scratchpad</h2>
+          </div>
+          <div class="notes-actions">
+            <button type="button" class="format-btn" data-action="bold" title="Bold"><b>B</b></button>
+            <button type="button" class="format-btn" data-action="list" title="List">• List</button>
+            <button type="button" class="format-btn" data-action="check" title="Checkbox">☑</button>
+            <button type="button" class="format-btn" data-action="time" title="Timestamp">🕒</button>
+            <button id="copyNoteBtn" class="copy-btn micro" title="Copy to clipboard">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              <span>Copy</span>
+            </button>
+          </div>
+        </header>
+
+        <div class="textarea-container">
+          <textarea 
+            id="scratchpadText" 
+            class="scratchpad-textarea" 
+            placeholder="Jot down quick thoughts, code, links, or meeting notes here... Auto-saves to your local storage on every keystroke."
+            spellcheck="false"
+          ></textarea>
+        </div>
+
+        <footer class="notes-footer">
+          <span id="scratchpadStats" class="footer-count">0 words • 0 chars</span>
+          <span id="scratchpadSaveStatus" class="save-status">Saved</span>
+        </footer>
+      </section>
+
+      <!-- BENTO TILE 5: Quick Utilities & Storage Info Tile -->
+      <section class="bento-tile bento-tools-tile" id="tileTools">
+        <div class="storage-info-item">
+          <div class="storage-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+              <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+              <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+            </svg>
+          </div>
+          <div class="storage-meta">
+            <span class="storage-label">Local Storage Key</span>
+            <span class="storage-val"><code>desknotes_app_state_v1</code></span>
+          </div>
+        </div>
+
+        <div class="tools-btn-group">
+          <button id="exportJsonBtn" class="tool-btn" title="Save backup file to your computer">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Export Backup
+          </button>
+          <button id="importJsonBtn" class="tool-btn" title="Restore backup file">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            Import
+          </button>
+          <input type="file" id="importFileInput" accept=".json" class="hidden" />
+        </div>
+      </section>
+
+    </main>
+
+    <!-- SETTINGS & CLOUD SYNC MODAL -->
+    <div id="settingsModal" class="modal-backdrop hidden">
+      <div class="modal-card">
+        
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            <h2>Widget Settings</h2>
+          </div>
+          <button id="closeSettingsBtn" class="icon-btn" aria-label="Close Settings">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+
+        <div class="modal-body">
+          
+          <!-- Storage Destination Info Box -->
+          <div class="setting-group highlight-box">
+            <label class="setting-title">
+              <span>💾 Storage Destination</span>
+              <span class="badge-pill green">Local & Private</span>
+            </label>
+            <p class="setting-hint">
+              Your tasks and notes are stored strictly inside your browser's offline <b>HTML5 LocalStorage</b> on this computer under <code>desknotes_app_state_v1</code>.
+              No account, no tracking, and 100% private to your device.
+            </p>
+          </div>
+
+          <!-- Cross-Platform Sync -->
+          <div class="setting-group">
+            <label class="setting-title">
+              <span>⚡ Live Sync (Desktop & Phone)</span>
+              <span class="badge-pill">Real-time</span>
+            </label>
+            <p class="setting-hint">Enter the same Sync Room Key on your phone and PC to sync tasks & notes live without signing up.</p>
+            
+            <div class="sync-input-row">
+              <input type="text" id="syncRoomInput" class="text-input" placeholder="e.g. desk-room-42" maxlength="32" />
+              <button id="generateRoomBtn" class="btn secondary" title="Generate random key">Random</button>
+              <button id="connectSyncBtn" class="btn primary">Connect</button>
+            </div>
+
+            <!-- QR Code Section -->
+            <div id="qrCodeContainer" class="qr-box hidden">
+              <p class="qr-instruction">Scan with your phone to open & sync:</p>
+              <div id="qrCanvasWrapper" class="qr-display"></div>
+              <p id="qrUrlText" class="qr-url-hint"></p>
+            </div>
+          </div>
+
+          <!-- Theme Selection -->
+          <div class="setting-group">
+            <label class="setting-title">Wireframe Theme</label>
+            <div class="theme-grid">
+              <button class="theme-card active" data-set-theme="balsamiq">
+                <span class="theme-preview balsamiq"></span>
+                <span>Wireframe</span>
+              </button>
+              <button class="theme-card" data-set-theme="blueprint">
+                <span class="theme-preview blueprint"></span>
+                <span>Blueprint</span>
+              </button>
+              <button class="theme-card" data-set-theme="chalkboard">
+                <span class="theme-preview chalkboard"></span>
+                <span>Chalkboard</span>
+              </button>
+              <button class="theme-card" data-set-theme="stickynote">
+                <span class="theme-preview stickynote"></span>
+                <span>Sticky Note</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Glass Opacity Slider -->
+          <div class="setting-group">
+            <div class="slider-header">
+              <label class="setting-title">Glass Opacity</label>
+              <span id="opacityValLabel" class="slider-val">85%</span>
+            </div>
+            <input type="range" id="opacitySlider" min="50" max="100" value="85" class="glass-slider" />
+          </div>
+
+          <!-- Sound FX Toggle in Modal -->
+          <div class="setting-group checkbox-row">
+            <label for="modalSoundCheckbox" class="setting-title">Harmonic Chime on Completion</label>
+            <input type="checkbox" id="modalSoundCheckbox" checked class="custom-toggle" />
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast-message hidden" role="status" aria-live="polite"></div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
