@@ -4,12 +4,41 @@ A hand-drawn, tactile **Balsamiq Mockup & Wireframe** styled desktop and mobile 
 
 ---
 
+## 📁 Project Structure
+
+```text
+Tododay/
+├── css/
+│   └── style.css           # Bento grid & wireframe aesthetic stylesheets
+├── js/
+│   └── app.js              # Core logic, reactive store, audio, & sync engine
+├── scripts/                # Windows automation & desktop widget helpers
+│   ├── DeskNotes-PopupService.ps1      # Win32 global "13" & F12 listener
+│   ├── Enable-Startup.bat              # Auto-start configuration script
+│   ├── Launch-Widget.bat               # Borderless Edge/Chrome app launcher
+│   ├── Launch-With-Phone-Sync.bat      # Local Wi-Fi mobile LAN launcher
+│   ├── Pin-To-Desktop.bat / .ps1       # Desktop shortcut & hotkey creator
+│   ├── Start-Local-Server.ps1          # Zero-dependency PowerShell HTTP server
+│   ├── Start-PopupService-Silently.vbs # Hidden background runner
+│   ├── Start-PopupService.bat          # Start pop-up listener
+│   ├── Stop-PopupService.bat           # Kill background listener
+│   └── Toggle-Pin-Window-OnTop.bat     # Win32 Always-On-Top window toggler
+├── .gitignore              # Ignores local shortcuts, OS metadata, & caches
+├── index.html              # Main web entry point (PWA & Desktop)
+├── Launch-Widget.bat       # 1-Click root launcher
+├── manifest.json           # Web App Manifest (standalone mobile PWA)
+├── README.md               # Documentation & setup guide
+└── sw.js                   # Service Worker (offline-first caching)
+```
+
+---
+
 ## 📌 Pinning & Global "Type 13" Pop-Up
 
 ### 1. Pin to Desktop & Windows Default
 Double-click:
 ```text
-Pin-To-Desktop.bat
+scripts\Pin-To-Desktop.bat
 ```
 - Creates a **DeskNotes.lnk** shortcut directly on your **Windows Desktop**.
 - Sets a native Windows hotkey: <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>N</kbd>.
@@ -19,7 +48,7 @@ Pin-To-Desktop.bat
 ### 2. The "Type 13" Instant Screen-Aware Pop-Up
 Double-click:
 ```text
-Start-PopupService.bat
+scripts\Start-PopupService.bat
 ```
 - Starts a silent background service (uses < 15MB RAM, 0% CPU).
 - **How it works**:
@@ -29,12 +58,12 @@ Start-PopupService.bat
     3. When typing notes inside DeskNotes, typing numbers like "13" safely keeps the window open.
     4. Pressing <kbd>F12</kbd> acts as an instant global toggle.
 - **To stop the service anytime**:
-  Double-click `Stop-PopupService.bat`.
+  Double-click `scripts\Stop-PopupService.bat`.
 
 ### 3. Pin Window On Top ("Always on Top")
 Keep DeskNotes pinned floating above all other windows (e.g. while writing in Word, coding, or watching videos):
 - **Option A (Hotkey)**: Press <kbd>Shift</kbd> + <kbd>F12</kbd> anywhere on your keyboard.
-- **Option B (1-Click Script)**: Double-click `Toggle-Pin-Window-OnTop.bat` to pin or unpin.
+- **Option B (1-Click Script)**: Double-click `scripts\Toggle-Pin-Window-OnTop.bat` to pin or unpin.
 - **Option C (Taskbar)**: When DeskNotes is open, right-click its taskbar icon $\rightarrow$ select **"Pin to taskbar"**.
 
 ---
@@ -77,6 +106,6 @@ Keep DeskNotes pinned floating above all other windows (e.g. while writing in Wo
 ## 🚀 Mobile Phone Companion (Same Wi-Fi)
 Double-click:
 ```text
-Launch-With-Phone-Sync.bat
+scripts\Launch-With-Phone-Sync.bat
 ```
 > Prints your local Wi-Fi IP (e.g. `http://192.168.1.XX:8080`). Open that URL on your phone and tap **Add to Home Screen** to get a fullscreen mobile PWA!

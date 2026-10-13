@@ -10,6 +10,12 @@ if (-not $AppDir) {
     $AppDir = (Get-Location).Path
 }
 if (-not (Test-Path (Join-Path $AppDir "index.html"))) {
+    $ParentDir = Split-Path -Parent $AppDir
+    if (Test-Path (Join-Path $ParentDir "index.html")) {
+        $AppDir = $ParentDir
+    }
+}
+if (-not (Test-Path (Join-Path $AppDir "index.html"))) {
     $AppDir = "c:\Users\homej\OneDrive\Desktop\notes-diy"
 }
 $HtmlPath = Join-Path $AppDir "index.html"

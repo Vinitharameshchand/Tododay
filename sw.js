@@ -1,10 +1,10 @@
-// Service Worker for Workspace Notes & Tasks (DeskNotes PWA)
-const CACHE_NAME = 'desknotes-cache-v1';
+// Service Worker for Tododay PWA
+const CACHE_NAME = 'tododay-cache-v2';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
-  './style.css',
-  './app.js',
+  './css/style.css',
+  './js/app.js',
   './manifest.json'
 ];
 

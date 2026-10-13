@@ -2,7 +2,10 @@
 # Runs without Node.js or Python!
 
 $Port = 8080
-$Folder = $PSScriptRoot
+$Folder = Split-Path -Parent $PSScriptRoot
+if (-not (Test-Path (Join-Path $Folder "index.html"))) {
+    $Folder = $PSScriptRoot
+}
 
 # Detect local LAN IP for phone connection
 $LocalIP = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { 
